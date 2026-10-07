@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дневник Класса</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+        .day-section {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+        }
+        .day-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #007bff;
+            border-bottom: 2px solid #e4e6eb;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+        }
+        .subject-row {
+            margin-bottom: 12px;
+        }
+        .subject-name {
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid #ccd0d5;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .task-text {
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #007bff;
+            white-space: pre-wrap;
+        }
+        .no-task {
+            color: #8a8d91;
+            font-style: italic;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-login { background: #007bff; color: white; }
+        .btn-save { background: #28a745; color: white; display: none; }
+        .status-msg { text-align: center; font-weight: bold; margin-bottom: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>📚 ДЗ на Неделю</h1>
+
+    <div id="status" class="status-msg"></div>
+
+    <div class="controls">
+        <button id="loginBtn" class="btn-login" onclick="login()">Вход для автора</button>
+        <button id="saveBtn" class="btn-save" onclick="save()">💾 Сохранить для класса</button>
+    </div>
+
+    <div id="box"><p style="text-align:center; color:#666;">Загрузка расписания...</p></div>
+</div>
+
+<script>
+    // --- ТВОИ НАСТРОЙКИ ТЕЛЕГРАМ-БОТА ---
+    const TG_BOT_TOKEN = "8919706955:AAGptAyuToj8qJ0_J7ySkmYRk8-UKyaKH-Y";
+    const TG_CHAT_ID = "-4298817550";
+
+    var schedule = {
+        "ПОНЕДЕЛЬНИК": ["Ров", "Труд", "Труд", "Русский", "Физика", "География", "Русский"],
+        "ВТОРНИК": ["Матем", "Матем", "Английский", "Инф", "Фин гр", "Физра"],
+        "СРЕДА": ["Матем", "Биология", "Русский", "Английский", "Физика", "Русский", "Литер"],
+        "ЧЕТВЕРГ": ["Биология", "Музыка", "Истор", "Матем", "Матем", "ИЗО", "Физра"],
+        "ПЯТНИЦА": ["Рмг", "Истор", "Русский", "Матем", "Геогр", "Матем", "Английский"],
+        "СУББОТА": ["Русский", "Мхк", "Физра"]
+    };
+
+    var isAdmin = false;
+    var savedTasks = {};
+
+    // Загрузка сохраненного ДЗ из описания канала/чата Телеграм
+    async function loadFromTelegram() {
+        if (TG_BOT_TOKEN.includes("ТВОЙ_")) {
+            document.getElementById("box").innerHTML = "<p style='color:red; text-align:center;'>Настройте бота в коде страницы!</p>";
+            return;
+        }
+        try {
+            const res = await fetch("https://telegram.org" + TG_BOT_TOKEN + "/getChat?chat_id=" + TG_CHAT_ID);
+            const data = await res.json();
+            if (data.ok && data.result.description) {
+                savedTasks = JSON.parse(data.result.description);
+            }
+            render();
+        } catch (e) {
+            // Если в ТГ еще ничего нет, просто загружаем пустую сетку
+            render();
+        }
+    }
+
+    function render() {
+        var html = "";
+        for (var day in schedule) {
+            html += '<div class="day-section"><div class="day-title">' + day + '</div>';
+            schedule[day].forEach(function(subject) {
+                var key = day + "_" + subject;
+                var currentTask = savedTasks[key] || "";
+                
+                html += '<div class="subject-row"><div class="subject-name">' + subject + '</div>';
+                if (isAdmin) {
+                    html += '<textarea data-key="' + key + '" rows="2" placeholder="Напиши задание...">' + currentTask + '</textarea>';
+                } else {
+                    if (currentTask) {
+                        html += '<div class="task-text">' + currentTask + '</div>';
+                    } else {
+                        html += '<div class="task-text no-task">Ничего не задано 🎉</div>';
+                    }
+                }
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+        document.getElementById("box").innerHTML = html;
+    }
+
+    function login() {
+        var pass = prompt("Введи секретный пароль автора:");
+        if (pass === "lokkol228") {
+            isAdmin = true;
+            document.getElementById("loginBtn").style.display = "none";
+            document.getElementById("saveBtn").style.display = "block";
+            render();
+        } else {
+            alert("Неверный пароль!");
+        }
+    }
+
+    async function save() {
+        const statusDiv = document.getElementById("status");
+        statusDiv.style.display = "block";
+        statusDiv.style.color = "orange";
+        statusDiv.innerText = "⏳ Сохранение в Телеграм...";
+
+        document.querySelectorAll("textarea").forEach(function(area) {
+            var key = area.getAttribute("data-key");
+            savedTasks[key] = area.value.trim();
+        });
+
+        try {
+            // Сохраняем базу данных прямо в описание (description) чата через бота
+            const textData = JSON.stringify(savedTasks);
+            const res = await fetch("https://telegram.org" + TG_BOT_TOKEN + "/setChatDescription", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    chat_id: TG_CHAT_ID,
+                    description: textData
+                })
+            });
+            const data = await res.json();
+            
+            if (data.ok) {
+                statusDiv.style.color = "green";
+                statusDiv.innerText = "✅ Сохранено в облако Телеграм!";
+                setTimeout(() => { statusDiv.style.display = "none"; }, 3000);
+                isAdmin = false;
+                document.getElementById("loginBtn").style.display = "block";
+                document.getElementById("saveBtn").style.display = "none";
+                render();
+            } else {
+                alert("Ошибка ТГ: " + data.description);
+            }
+        } catch (e) {
+            statusDiv.style.color = "red";
+            statusDiv.innerText = "❌ Ошибка сети.";
+        }
+    }
+
+    loadFromTelegram();
+</script>
+</body>
+</html>
